@@ -1,0 +1,12 @@
+slprj/
+*.slxc
+*.asv
+*.autosave
+__pycache__/
+.ipynb_checkpoints/
+docs/*.aux
+docs/*.log
+docs/*.out
+docs/*.toc
+docs/*.fls
+docs/*.fdb_latexmk

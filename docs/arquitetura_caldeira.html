@@ -1,0 +1,1047 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Guia Visual Simulink — Caldeira de Geração de Vapor (UFMT)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background-color: #f8fafc;
+      color: #0f172a;
+    }
+    .mono {
+      font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+    .svg-item {
+      transition: opacity 0.2s ease, filter 0.2s ease;
+    }
+    .svg-dimmed {
+      opacity: 0.13 !important;
+    }
+    .block-node {
+      cursor: pointer;
+    }
+    .block-node .sim-shape {
+      transition: stroke-width 0.14s ease, filter 0.14s ease;
+    }
+    .block-node:hover .sim-shape {
+      filter: drop-shadow(0 4px 10px rgba(15, 23, 42, 0.14));
+      stroke-width: 2.4px;
+    }
+    .block-selected .sim-shape {
+      stroke-width: 3px !important;
+      filter: drop-shadow(0 0 0 3px rgba(37, 99, 235, 0.28));
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-[#f8fafc] text-[#0f172a] antialiased selection:bg-blue-100 selection:text-blue-900">
+
+  <div class="max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-5">
+
+    <!-- Cabeçalho -->
+    <header class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div>
+        <div class="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">
+          <span>Simulink Blueprint</span>
+          <span class="text-slate-300">•</span>
+          <span>Organização em 3 Áreas Sem Cruzamento de Fios</span>
+        </div>
+        <h1 class="text-xl sm:text-2xl font-bold tracking-tight text-slate-900">
+          Caldeira de Geração de Vapor — Layout Recomendado para Simulink
+        </h1>
+      </div>
+
+      <div class="flex items-center gap-3 self-start md:self-auto">
+        <button
+          id="btn-export-svg"
+          type="button"
+          class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 text-white text-sm font-medium hover:bg-slate-800 active:scale-[0.98] transition shadow-sm"
+        >
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+            <polyline points="7 10 12 15 17 10" />
+            <line x1="12" y1="15" x2="12" y2="3" />
+          </svg>
+          <span>Exportar SVG</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Barra de Filtros -->
+    <section class="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-3">
+      <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+        <div class="flex flex-wrap items-center gap-2">
+          <span class="text-xs font-semibold uppercase tracking-wider text-slate-500 mr-1">Isolar Área no Simulink:</span>
+          <button type="button" class="filter-btn px-3.5 py-1.5 rounded-lg text-xs font-semibold border transition bg-slate-900 text-white border-slate-900" data-filter="all">
+            Visão Completa (3 Áreas)
+          </button>
+          <button type="button" class="filter-btn px-3.5 py-1.5 rounded-lg text-xs font-semibold border transition bg-white text-slate-700 border-slate-200 hover:bg-slate-50" data-filter="vapor">
+            Área 1: Vapor &amp; Gás (Fv / Fg)
+          </button>
+          <button type="button" class="filter-btn px-3.5 py-1.5 rounded-lg text-xs font-semibold border transition bg-white text-slate-700 border-slate-200 hover:bg-slate-50" data-filter="ar">
+            Área 2: Queima / Ar + FF (Fr)
+          </button>
+          <button type="button" class="filter-btn px-3.5 py-1.5 rounded-lg text-xs font-semibold border transition bg-white text-slate-700 border-slate-200 hover:bg-slate-50" data-filter="nivel">
+            Área 3: Nível + FF Dinâmico (L)
+          </button>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-3 text-xs text-slate-600">
+          <span class="inline-flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-blue-100 border border-blue-600 inline-block"></span> MATLAB System (GPC)</span>
+          <span class="inline-flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-emerald-50 border border-emerald-600 inline-block"></span> Transfer Fcn / Gain</span>
+          <span class="inline-flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-violet-50 border border-violet-600 inline-block"></span> Feedforward (FF)</span>
+          <span class="inline-flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-amber-50 border border-amber-600 inline-block"></span> Goto / From</span>
+        </div>
+      </div>
+
+      <div id="focus-hint" class="text-xs text-slate-600 bg-slate-50 border border-slate-200/70 rounded-xl px-3.5 py-2 flex items-center gap-2">
+        <span class="inline-block w-2 h-2 rounded-full bg-blue-600 shrink-0"></span>
+        <span id="focus-hint-text">Clique em qualquer bloco do diagrama para ver o caminho exato na Library Browser e os parâmetros numéricos para digitar no Simulink.</span>
+      </div>
+    </section>
+
+    <!-- Diagrama SVG Estilo Simulink -->
+    <section class="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+      <div class="overflow-x-auto p-3 sm:p-4">
+        <div class="min-w-[1050px]">
+          <svg
+            id="control-diagram"
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 1480 940"
+            class="w-full h-auto select-none"
+          >
+            <defs>
+              <!-- Grid sutil estilo canvas Simulink -->
+              <pattern id="sim-grid" width="24" height="24" patternUnits="userSpaceOnUse">
+                <path d="M 24 0 L 0 0 0 24" fill="none" stroke="#f1f5f9" stroke-width="1" />
+              </pattern>
+              <marker id="arr-dark" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M 0 1.5 L 9.5 5 L 0 8.5 z" fill="#334155" />
+              </marker>
+              <marker id="arr-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M 0 1.5 L 9.5 5 L 0 8.5 z" fill="#1d4ed8" />
+              </marker>
+              <marker id="arr-violet" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M 0 1.5 L 9.5 5 L 0 8.5 z" fill="#7c3aed" />
+              </marker>
+              <marker id="arr-red" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M 0 1.5 L 9.5 5 L 0 8.5 z" fill="#dc2626" />
+              </marker>
+              <marker id="arr-teal" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M 0 1.5 L 9.5 5 L 0 8.5 z" fill="#0f766e" />
+              </marker>
+            </defs>
+
+            <!-- Fundo canvas -->
+            <rect x="0" y="0" width="1480" height="940" fill="#ffffff" />
+            <rect x="0" y="0" width="1480" height="940" fill="url(#sim-grid)" />
+
+            <!-- ========================================================= -->
+            <!-- ÁREA 1: VAPOR E MALHA INTERNA DE GÁS                       -->
+            <!-- ========================================================= -->
+            <g class="svg-item" data-group="vapor">
+              <rect x="20" y="18" width="1440" height="288" rx="14" fill="#f8fafc" fill-opacity="0.72" stroke="#cbd5e1" stroke-width="1.4" stroke-dasharray="6 4" />
+              <text x="36" y="40" font-size="12" font-weight="700" fill="#1e40af" letter-spacing="0.04em">ÁREA 1 — MALHA MESTRE DE VAPOR (GPC SISO, Ts = 0,5 s) + MALHA INTERNA DE GÁS (I-P b=0)</text>
+
+              <!-- Linhas ortogonais Área 1 -->
+              <line x1="94" y1="112" x2="146" y2="112" stroke="#334155" stroke-width="2" marker-end="url(#arr-dark)" />
+              <line x1="306" y1="126" x2="352" y2="126" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arr-blue)" />
+              <text x="328" y="117" font-size="10.5" font-weight="600" fill="#1d4ed8" text-anchor="middle">Fg_ref</text>
+
+              <line x1="388" y1="126" x2="430" y2="126" stroke="#334155" stroke-width="2" marker-end="url(#arr-dark)" />
+              <line x1="518" y1="126" x2="554" y2="126" stroke="#334155" stroke-width="2" marker-end="url(#arr-dark)" />
+              <line x1="590" y1="126" x2="628" y2="126" stroke="#334155" stroke-width="2" marker-end="url(#arr-dark)" />
+              <line x1="696" y1="126" x2="770" y2="126" stroke="#334155" stroke-width="2" marker-end="url(#arr-dark)" />
+              <text x="722" y="117" font-size="10.5" font-weight="600" fill="#0f172a" text-anchor="middle">ag</text>
+
+              <!-- Tap ag -> Goto[ag] -->
+              <circle cx="722" cy="126" r="3.5" fill="#7c3aed" />
+              <path d="M 722 126 L 722 184 L 742 184" fill="none" stroke="#7c3aed" stroke-width="1.8" marker-end="url(#arr-violet)" />
+
+              <!-- G_g -> Sum dg -->
+              <line x1="896" y1="126" x2="942" y2="126" stroke="#334155" stroke-width="2" marker-end="url(#arr-dark)" />
+              <!-- Step d_g -> Sum dg -->
+              <line x1="960" y1="84" x2="960" y2="108" stroke="#dc2626" stroke-width="2" marker-end="url(#arr-red)" />
+
+              <!-- Sum dg -> G_v -->
+              <line x1="978" y1="126" x2="1068" y2="126" stroke="#334155" stroke-width="2" marker-end="url(#arr-dark)" />
+              <text x="1014" y="117" font-size="10.5" font-weight="600" fill="#0f172a" text-anchor="middle">Fg</text>
+
+              <!-- Tap Fg -> Goto[Fg] -->
+              <circle cx="1014" cy="126" r="3.5" fill="#0f766e" />
+              <path d="M 1014 126 L 1014 236 L 1036 236" fill="none" stroke="#0f766e" stroke-width="1.8" marker-end="url(#arr-teal)" />
+
+              <!-- Realimentação I-P Gás: Fg -> Gain Kp_g -> Sum(+-) e Sum(eg) -->
+              <circle cx="998" cy="126" r="3.5" fill="#334155" />
+              <path d="M 998 126 L 998 206 L 690 206" fill="none" stroke="#334155" stroke-width="1.8" marker-end="url(#arr-dark)" />
+              <!-- Saída de Kp_g para Sum(+-) de ag -->
+              <path d="M 622 206 L 572 206 L 572 144" fill="none" stroke="#334155" stroke-width="1.8" marker-end="url(#arr-dark)" />
+              <!-- Ramo direto de Fg até Sum(eg) -->
+              <circle cx="572" cy="206" r="3.2" fill="#334155" />
+              <path d="M 572 206 L 370 206 L 370 144" fill="none" stroke="#334155" stroke-width="1.8" marker-end="url(#arr-dark)" />
+
+              <!-- G_v -> Out Fv e Goto[Fv] -->
+              <line x1="1234" y1="126" x2="1312" y2="126" stroke="#334155" stroke-width="2" marker-end="url(#arr-dark)" />
+              <text x="1272" y="117" font-size="10.5" font-weight="600" fill="#0f172a" text-anchor="middle">Fv</text>
+              <circle cx="1272" cy="126" r="3.5" fill="#7c3aed" />
+              <path d="M 1272 126 L 1272 184 L 1312 184" fill="none" stroke="#7c3aed" stroke-width="1.8" marker-end="url(#arr-violet)" />
+
+              <!-- Realimentação Fv -> GPC_Vapor (y) -->
+              <circle cx="1256" cy="126" r="3.5" fill="#1d4ed8" />
+              <path d="M 1256 126 L 1256 282 L 116 282 L 116 146 L 146 146" fill="none" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arr-blue)" />
+              <text x="680" y="274" font-size="10.5" font-weight="500" fill="#1d4ed8" text-anchor="middle">Realimentação de Vapor Fv(t) → porta y do GPC_Vapor</text>
+
+              <!-- BLOCOS DA ÁREA 1 -->
+              <!-- Step r_Fv -->
+              <g class="block-node" data-id="step_rfv">
+                <rect class="sim-shape" x="42" y="92" width="52" height="40" rx="5" fill="#ffffff" stroke="#334155" stroke-width="1.8" />
+                <polyline points="52,122 65,122 65,102 82,102" fill="none" stroke="#0f172a" stroke-width="2" />
+                <text x="68" y="146" font-size="10.5" font-weight="600" fill="#0f172a" text-anchor="middle">Step r_Fv</text>
+              </g>
+
+              <!-- GPC_Vapor (MATLAB System) -->
+              <g class="block-node" data-id="gpc_vapor">
+                <rect class="sim-shape" x="150" y="84" width="156" height="86" rx="8" fill="#eff6ff" stroke="#1d4ed8" stroke-width="2.2" />
+                <rect x="155" y="89" width="146" height="76" rx="5" fill="none" stroke="#93c5fd" stroke-width="1" />
+                <text x="158" y="116" font-size="10.5" font-weight="700" fill="#1e3a8a">r</text>
+                <text x="158" y="150" font-size="10.5" font-weight="700" fill="#1e3a8a">y</text>
+                <text x="296" y="130" font-size="10.5" font-weight="700" fill="#1e3a8a" text-anchor="end">u</text>
+                <text x="228" y="121" font-size="12" font-weight="700" fill="#1e3a8a" text-anchor="middle">GPC_Vapor</text>
+                <text x="228" y="137" font-size="9.5" class="mono" fill="#1d4ed8" text-anchor="middle">ControladorPreditivo</text>
+                <text x="228" y="153" font-size="9" fill="#3b82f6" text-anchor="middle">Ts=0,5s | Nu=2 | [0; 0,46]</text>
+              </g>
+
+              <!-- Sum eg (+-) -->
+              <g class="block-node" data-id="sum_eg">
+                <circle class="sim-shape" cx="370" cy="126" r="18" fill="#ffffff" stroke="#334155" stroke-width="2" />
+                <text x="360" y="129" font-size="12" font-weight="700" fill="#0f172a" text-anchor="middle">+</text>
+                <text x="370" y="139" font-size="13" font-weight="700" fill="#dc2626" text-anchor="middle">−</text>
+                <text x="370" y="100" font-size="9.5" font-weight="600" fill="#475569" text-anchor="middle">Sum eg</text>
+              </g>
+
+              <!-- Integrator Ki_g / s -->
+              <g class="block-node" data-id="int_kig">
+                <rect class="sim-shape" x="432" y="101" width="86" height="50" rx="5" fill="#ecfdf5" stroke="#059669" stroke-width="1.8" />
+                <text x="475" y="123" font-size="12" font-weight="700" class="mono" fill="#065f46" text-anchor="middle">4.80 / s</text>
+                <text x="475" y="139" font-size="9" fill="#047857" text-anchor="middle">Ki_g + AW Kb=50</text>
+              </g>
+
+              <!-- Sum ag (+-) -->
+              <g class="block-node" data-id="sum_ag">
+                <circle class="sim-shape" cx="572" cy="126" r="18" fill="#ffffff" stroke="#334155" stroke-width="2" />
+                <text x="562" y="129" font-size="12" font-weight="700" fill="#0f172a" text-anchor="middle">+</text>
+                <text x="572" y="139" font-size="13" font-weight="700" fill="#dc2626" text-anchor="middle">−</text>
+                <text x="572" y="100" font-size="9.5" font-weight="600" fill="#475569" text-anchor="middle">I-P (b=0)</text>
+              </g>
+
+              <!-- Gain Kp_g (triângulo apontando para esquerda) -->
+              <g class="block-node" data-id="gain_kpg">
+                <polygon class="sim-shape" points="690,180 690,232 624,206" fill="#ecfdf5" stroke="#059669" stroke-width="1.8" />
+                <text x="667" y="210" font-size="11" font-weight="700" class="mono" fill="#065f46" text-anchor="middle">0.50</text>
+                <text x="658" y="246" font-size="9.5" font-weight="600" fill="#475569" text-anchor="middle">Kp_g</text>
+              </g>
+
+              <!-- Saturation Sat_ag -->
+              <g class="block-node" data-id="sat_ag">
+                <rect class="sim-shape" x="630" y="101" width="66" height="50" rx="5" fill="#fffbeb" stroke="#d97706" stroke-width="1.8" />
+                <line x1="638" y1="126" x2="688" y2="126" stroke="#cbd5e1" stroke-width="1" />
+                <line x1="663" y1="107" x2="663" y2="145" stroke="#cbd5e1" stroke-width="1" />
+                <polyline points="642,140 653,140 673,112 684,112" fill="none" stroke="#92400e" stroke-width="2" />
+                <text x="663" y="164" font-size="9.5" font-weight="600" fill="#92400e" text-anchor="middle">Sat_ag [0, 1]</text>
+              </g>
+
+              <!-- Goto [ag] -->
+              <g class="block-node" data-id="goto_ag">
+                <polygon class="sim-shape" points="744,170 796,170 810,184 796,198 744,198" fill="#f5f3ff" stroke="#7c3aed" stroke-width="1.7" />
+                <text x="774" y="188" font-size="10.5" font-weight="700" class="mono" fill="#5b21b6" text-anchor="middle">[ag]</text>
+              </g>
+
+              <!-- Transfer Fcn G_g(s) -->
+              <g class="block-node" data-id="tf_gg">
+                <rect class="sim-shape" x="772" y="99" width="124" height="54" rx="5" fill="#f0fdf4" stroke="#16a34a" stroke-width="1.8" />
+                <text x="834" y="119" font-size="11.5" font-weight="700" class="mono" fill="#166534" text-anchor="middle">2</text>
+                <line x1="792" y1="125" x2="876" y2="125" stroke="#166534" stroke-width="1.3" />
+                <text x="834" y="141" font-size="11" font-weight="600" class="mono" fill="#166534" text-anchor="middle">0.1s + 1</text>
+                <text x="834" y="167" font-size="9.5" font-weight="600" fill="#15803d" text-anchor="middle">G_g(s) Válv. Gás</text>
+              </g>
+
+              <!-- Step d_g -->
+              <g class="block-node" data-id="step_dg">
+                <rect class="sim-shape" x="934" y="44" width="52" height="40" rx="5" fill="#fef2f2" stroke="#dc2626" stroke-width="1.8" />
+                <polyline points="944,74 957,74 957,54 974,54" fill="none" stroke="#991b1b" stroke-width="2" />
+                <text x="1012" y="68" font-size="10.5" font-weight="700" fill="#dc2626">Step d_g</text>
+              </g>
+
+              <!-- Sum d_g (++) -->
+              <g class="block-node" data-id="sum_dg">
+                <circle class="sim-shape" cx="960" cy="126" r="18" fill="#ffffff" stroke="#334155" stroke-width="2" />
+                <text x="950" y="130" font-size="12" font-weight="700" fill="#0f172a" text-anchor="middle">+</text>
+                <text x="960" y="120" font-size="12" font-weight="700" fill="#dc2626" text-anchor="middle">+</text>
+              </g>
+
+              <!-- Goto [Fg] -->
+              <g class="block-node" data-id="goto_fg">
+                <polygon class="sim-shape" points="1038,222 1090,222 1104,236 1090,250 1038,250" fill="#f0fdfa" stroke="#0f766e" stroke-width="1.7" />
+                <text x="1068" y="240" font-size="10.5" font-weight="700" class="mono" fill="#115e59" text-anchor="middle">[Fg]</text>
+              </g>
+
+              <!-- Transfer Fcn G_v(s) -->
+              <g class="block-node" data-id="tf_gv">
+                <rect class="sim-shape" x="1070" y="99" width="164" height="54" rx="5" fill="#f0fdf4" stroke="#16a34a" stroke-width="1.8" />
+                <text x="1152" y="119" font-size="11.5" font-weight="700" class="mono" fill="#166534" text-anchor="middle">10</text>
+                <line x1="1088" y1="125" x2="1216" y2="125" stroke="#166534" stroke-width="1.3" />
+                <text x="1152" y="141" font-size="11" font-weight="600" class="mono" fill="#166534" text-anchor="middle">15s² + 8s + 1</text>
+                <text x="1152" y="167" font-size="9.5" font-weight="600" fill="#15803d" text-anchor="middle">G_v(s) Caldeira</text>
+              </g>
+
+              <!-- Out / Scope Fv -->
+              <g class="block-node" data-id="out_fv">
+                <rect class="sim-shape" x="1314" y="109" width="96" height="34" rx="17" fill="#f1f5f9" stroke="#334155" stroke-width="1.8" />
+                <text x="1362" y="130" font-size="11" font-weight="700" fill="#0f172a" text-anchor="middle">Out: Fv</text>
+              </g>
+
+              <!-- Goto [Fv] -->
+              <g class="block-node" data-id="goto_fv">
+                <polygon class="sim-shape" points="1314,170 1372,170 1386,184 1372,198 1314,198" fill="#f5f3ff" stroke="#7c3aed" stroke-width="1.7" />
+                <text x="1346" y="188" font-size="10.5" font-weight="700" class="mono" fill="#5b21b6" text-anchor="middle">[Fv]</text>
+              </g>
+            </g>
+
+            <!-- ========================================================= -->
+            <!-- ÁREA 2: MALHA ESCRAVA DE AR + FEEDFORWARD ag -> ar         -->
+            <!-- ========================================================= -->
+            <g class="svg-item" data-group="ar">
+              <rect x="20" y="324" width="1440" height="248" rx="14" fill="#f8fafc" fill-opacity="0.72" stroke="#cbd5e1" stroke-width="1.4" stroke-dasharray="6 4" />
+              <text x="36" y="346" font-size="12" font-weight="700" fill="#0f766e" letter-spacing="0.04em">ÁREA 2 — MALHA ESCRAVA DE AR (PI LGR -10/-16) + FEEDFORWARD REALIZÁVEL (ag → ar) + MONITOR RAZÃO</text>
+
+              <!-- Linhas ortogonais Área 2 -->
+              <line x1="112" y1="456" x2="176" y2="456" stroke="#0f766e" stroke-width="2" marker-end="url(#arr-teal)" />
+              <line x1="244" y1="456" x2="314" y2="456" stroke="#334155" stroke-width="2" marker-end="url(#arr-dark)" />
+              <text x="278" y="447" font-size="10.5" font-weight="600" fill="#0f172a" text-anchor="middle">R·Fg</text>
+
+              <!-- Sum er -> PI_LGR_Ar -->
+              <line x1="350" y1="456" x2="432" y2="456" stroke="#334155" stroke-width="2" marker-end="url(#arr-dark)" />
+              <text x="390" y="447" font-size="10.5" font-weight="600" fill="#0f172a" text-anchor="middle">er</text>
+
+              <!-- PI_LGR_Ar -> Sum ar -->
+              <line x1="598" y1="456" x2="668" y2="456" stroke="#334155" stroke-width="2" marker-end="url(#arr-dark)" />
+
+              <!-- From [ag] -> FF_Ar -> Sum ar -->
+              <line x1="484" y1="380" x2="528" y2="380" stroke="#7c3aed" stroke-width="2" marker-end="url(#arr-violet)" />
+              <path d="M 664 380 L 686 380 L 686 438" fill="none" stroke="#7c3aed" stroke-width="2" marker-end="url(#arr-violet)" />
+              <text x="720" y="410" font-size="10" font-weight="600" fill="#7c3aed">ar_ff</text>
+
+              <!-- Sum ar -> Sat_ar -> G_r -> Out Fr -->
+              <line x1="704" y1="456" x2="758" y2="456" stroke="#334155" stroke-width="2" marker-end="url(#arr-dark)" />
+              <line x1="826" y1="456" x2="884" y2="456" stroke="#334155" stroke-width="2" marker-end="url(#arr-dark)" />
+              <text x="854" y="447" font-size="10.5" font-weight="600" fill="#0f172a" text-anchor="middle">ar</text>
+
+              <line x1="1010" y1="456" x2="1096" y2="456" stroke="#334155" stroke-width="2" marker-end="url(#arr-dark)" />
+              <text x="1050" y="447" font-size="10.5" font-weight="600" fill="#0f172a" text-anchor="middle">Fr</text>
+
+              <!-- Realimentação Fr -> Sum er -->
+              <circle cx="1050" cy="456" r="3.5" fill="#0f766e" />
+              <path d="M 1050 456 L 1050 542 L 332 542 L 332 474" fill="none" stroke="#0f766e" stroke-width="2" marker-end="url(#arr-teal)" />
+              <text x="690" y="534" font-size="10.5" font-weight="500" fill="#0f766e" text-anchor="middle">Realimentação da Vazão de Ar Fr(t)</text>
+
+              <!-- Conexão Monitor Fr/Fg -->
+              <circle cx="1070" cy="456" r="3.5" fill="#334155" />
+              <path d="M 1070 456 L 1070 400 L 1272 400" fill="none" stroke="#334155" stroke-width="1.8" marker-end="url(#arr-dark)" />
+              <line x1="1218" y1="422" x2="1272" y2="422" stroke="#0f766e" stroke-width="1.8" marker-end="url(#arr-teal)" />
+              <line x1="1332" y1="411" x2="1364" y2="411" stroke="#334155" stroke-width="1.8" marker-end="url(#arr-dark)" />
+
+              <!-- BLOCOS DA ÁREA 2 -->
+              <!-- From [Fg] -->
+              <g class="block-node" data-id="from_fg">
+                <polygon class="sim-shape" points="44,442 98,442 112,456 98,470 44,470" fill="#f0fdfa" stroke="#0f766e" stroke-width="1.7" />
+                <text x="74" y="460" font-size="10.5" font-weight="700" class="mono" fill="#115e59" text-anchor="middle">[Fg]</text>
+              </g>
+
+              <!-- Gain R = 2.1 -->
+              <g class="block-node" data-id="gain_r">
+                <polygon class="sim-shape" points="178,430 178,482 244,456" fill="#ecfdf5" stroke="#059669" stroke-width="1.8" />
+                <text x="200" y="460" font-size="11" font-weight="700" class="mono" fill="#065f46" text-anchor="middle">2.1</text>
+                <text x="206" y="497" font-size="9.5" font-weight="600" fill="#475569" text-anchor="middle">Razão R</text>
+              </g>
+
+              <!-- Sum er (+-) -->
+              <g class="block-node" data-id="sum_er">
+                <circle class="sim-shape" cx="332" cy="456" r="18" fill="#ffffff" stroke="#334155" stroke-width="2" />
+                <text x="322" y="460" font-size="12" font-weight="700" fill="#0f172a" text-anchor="middle">+</text>
+                <text x="332" y="469" font-size="13" font-weight="700" fill="#dc2626" text-anchor="middle">−</text>
+              </g>
+
+              <!-- PI LGR Ar -->
+              <g class="block-node" data-id="pi_ar">
+                <rect class="sim-shape" x="434" y="424" width="164" height="64" rx="7" fill="#eff6ff" stroke="#1d4ed8" stroke-width="2" />
+                <text x="516" y="446" font-size="11.5" font-weight="700" fill="#1e3a8a" text-anchor="middle">PI LGR Ar</text>
+                <text x="516" y="463" font-size="10" class="mono" fill="#1d4ed8" text-anchor="middle">P = 4.20 | I = 32.0</text>
+                <text x="516" y="479" font-size="9" fill="#3b82f6" text-anchor="middle">Back-Calc Kb = 50</text>
+              </g>
+
+              <!-- From [ag] -->
+              <g class="block-node" data-id="from_ag">
+                <polygon class="sim-shape" points="416,366 470,366 484,380 470,394 416,394" fill="#f5f3ff" stroke="#7c3aed" stroke-width="1.7" />
+                <text x="446" y="384" font-size="10.5" font-weight="700" class="mono" fill="#5b21b6" text-anchor="middle">[ag]</text>
+              </g>
+
+              <!-- Transfer Fcn FF_Ar -->
+              <g class="block-node" data-id="tf_ff_ar">
+                <rect class="sim-shape" x="530" y="353" width="134" height="54" rx="5" fill="#f5f3ff" stroke="#7c3aed" stroke-width="1.8" />
+                <text x="597" y="373" font-size="11" font-weight="700" class="mono" fill="#5b21b6" text-anchor="middle">0.84s + 4.2</text>
+                <line x1="548" y1="379" x2="646" y2="379" stroke="#5b21b6" stroke-width="1.3" />
+                <text x="597" y="395" font-size="11" font-weight="600" class="mono" fill="#5b21b6" text-anchor="middle">0.1s + 1</text>
+                <text x="597" y="418" font-size="9" font-weight="600" fill="#6d28d9" text-anchor="middle">FF_Ar = 4R - 2R/(0.1s+1)</text>
+              </g>
+
+              <!-- Sum ar (++) -->
+              <g class="block-node" data-id="sum_ar">
+                <circle class="sim-shape" cx="686" cy="456" r="18" fill="#ffffff" stroke="#334155" stroke-width="2" />
+                <text x="676" y="460" font-size="12" font-weight="700" fill="#0f172a" text-anchor="middle">+</text>
+                <text x="686" y="449" font-size="12" font-weight="700" fill="#7c3aed" text-anchor="middle">+</text>
+              </g>
+
+              <!-- Saturation Sat_ar -->
+              <g class="block-node" data-id="sat_ar">
+                <rect class="sim-shape" x="760" y="431" width="66" height="50" rx="5" fill="#fffbeb" stroke="#d97706" stroke-width="1.8" />
+                <line x1="768" y1="456" x2="818" y2="456" stroke="#cbd5e1" stroke-width="1" />
+                <line x1="793" y1="437" x2="793" y2="475" stroke="#cbd5e1" stroke-width="1" />
+                <polyline points="772,470 783,470 803,442 814,442" fill="none" stroke="#92400e" stroke-width="2" />
+                <text x="793" y="494" font-size="9.5" font-weight="600" fill="#92400e" text-anchor="middle">Sat_ar [0, 1]</text>
+              </g>
+
+              <!-- Transfer Fcn G_r(s) -->
+              <g class="block-node" data-id="tf_gr">
+                <rect class="sim-shape" x="886" y="429" width="124" height="54" rx="5" fill="#f0fdf4" stroke="#16a34a" stroke-width="1.8" />
+                <text x="948" y="449" font-size="11.5" font-weight="700" class="mono" fill="#166534" text-anchor="middle">1</text>
+                <line x1="906" y1="455" x2="990" y2="455" stroke="#166534" stroke-width="1.3" />
+                <text x="948" y="471" font-size="11" font-weight="600" class="mono" fill="#166534" text-anchor="middle">0.2s + 1</text>
+                <text x="948" y="497" font-size="9.5" font-weight="600" fill="#15803d" text-anchor="middle">G_r(s) Válv. Ar</text>
+              </g>
+
+              <!-- Out Fr -->
+              <g class="block-node" data-id="out_fr">
+                <rect class="sim-shape" x="1098" y="439" width="94" height="34" rx="17" fill="#f1f5f9" stroke="#334155" stroke-width="1.8" />
+                <text x="1145" y="460" font-size="11" font-weight="700" fill="#0f172a" text-anchor="middle">Out: Fr</text>
+              </g>
+
+              <!-- Monitor Divide Fr/Fg -->
+              <g class="block-node" data-id="from_fg_mon">
+                <polygon class="sim-shape" points="1152,408 1204,408 1218,422 1204,436 1152,436" fill="#f0fdfa" stroke="#0f766e" stroke-width="1.7" />
+                <text x="1181" y="426" font-size="10.5" font-weight="700" class="mono" fill="#115e59" text-anchor="middle">[Fg]</text>
+              </g>
+
+              <g class="block-node" data-id="div_ratio">
+                <rect class="sim-shape" x="1274" y="386" width="58" height="50" rx="5" fill="#ffffff" stroke="#334155" stroke-width="1.8" />
+                <text x="1285" y="405" font-size="11" font-weight="700" fill="#0f172a">×</text>
+                <text x="1285" y="427" font-size="11" font-weight="700" fill="#0f172a">÷</text>
+                <text x="1312" y="415" font-size="10" font-weight="700" fill="#475569" text-anchor="middle">R</text>
+                <text x="1303" y="450" font-size="9.5" font-weight="600" fill="#475569" text-anchor="middle">Razão Fr/Fg</text>
+              </g>
+
+              <g class="block-node" data-id="out_ratio">
+                <rect class="sim-shape" x="1366" y="394" width="76" height="34" rx="17" fill="#f1f5f9" stroke="#334155" stroke-width="1.8" />
+                <text x="1404" y="415" font-size="10.5" font-weight="700" fill="#0f172a" text-anchor="middle">Fr/Fg</text>
+              </g>
+            </g>
+
+            <!-- ========================================================= -->
+            <!-- ÁREA 3: MALHA DE NÍVEL + FEEDFORWARD DINÂMICO EXATO        -->
+            <!-- ========================================================= -->
+            <g class="svg-item" data-group="nivel">
+              <rect x="20" y="590" width="1440" height="332" rx="14" fill="#f8fafc" fill-opacity="0.72" stroke="#cbd5e1" stroke-width="1.4" stroke-dasharray="6 4" />
+              <text x="36" y="612" font-size="12" font-weight="700" fill="#0369a1" letter-spacing="0.04em">ÁREA 3 — MALHA DE NÍVEL NO TUBULÃO (GPC DINÂMICO, Ts = 1,0 s) + FEEDFORWARD EXATO DE SWELL/SHRINK</text>
+
+              <!-- Linhas ortogonais Área 3 -->
+              <!-- Step r_L -> GPC_Nivel (r) -->
+              <line x1="94" y1="730" x2="216" y2="730" stroke="#334155" stroke-width="2" marker-end="url(#arr-dark)" />
+              <!-- From [v_ff] -> GPC_Nivel (v_ff) -->
+              <line x1="176" y1="790" x2="216" y2="790" stroke="#7c3aed" stroke-width="2" marker-end="url(#arr-violet)" />
+
+              <!-- Linha FF_L superior: From [Fv] -> TF FF_L -> Sum Va (sem cruzar fios!) -->
+              <line x1="336" y1="654" x2="386" y2="654" stroke="#7c3aed" stroke-width="2" marker-end="url(#arr-violet)" />
+              <line x1="544" y1="654" x2="622" y2="654" stroke="#7c3aed" stroke-width="2" />
+              <circle cx="586" cy="654" r="3.5" fill="#7c3aed" />
+              <line x1="586" y1="654" x2="586" y2="742" stroke="#7c3aed" stroke-width="2" marker-end="url(#arr-violet)" />
+              <text x="606" y="704" font-size="10.5" font-weight="600" fill="#7c3aed">v_ff</text>
+
+              <!-- GPC_Nivel -> Sum Va -> Sat_Va -> Sum dVa -> Gain Ka -> Sum Gd -> G_L -> Out L -->
+              <line x1="390" y1="760" x2="568" y2="760" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arr-blue)" />
+              <text x="480" y="751" font-size="10.5" font-weight="600" fill="#1d4ed8" text-anchor="middle">Va_gpc</text>
+
+              <line x1="604" y1="760" x2="654" y2="760" stroke="#334155" stroke-width="2" marker-end="url(#arr-dark)" />
+              <line x1="722" y1="760" x2="778" y2="760" stroke="#334155" stroke-width="2" marker-end="url(#arr-dark)" />
+              <text x="748" y="751" font-size="10.5" font-weight="600" fill="#0f172a" text-anchor="middle">Va</text>
+
+              <!-- Step d_Va -> Sum dVa -->
+              <line x1="796" y1="816" x2="796" y2="778" stroke="#dc2626" stroke-width="1.8" marker-end="url(#arr-red)" />
+
+              <line x1="814" y1="760" x2="860" y2="760" stroke="#334155" stroke-width="2" marker-end="url(#arr-dark)" />
+              <line x1="926" y1="760" x2="982" y2="760" stroke="#334155" stroke-width="2" marker-end="url(#arr-dark)" />
+              <text x="954" y="751" font-size="10.5" font-weight="600" fill="#0f172a" text-anchor="middle">Fa</text>
+
+              <!-- Ramo Gd(s) acima de Sum Gd -->
+              <line x1="822" y1="654" x2="860" y2="654" stroke="#dc2626" stroke-width="1.8" marker-end="url(#arr-red)" />
+              <path d="M 1018 654 L 1000 654 L 1000 742" fill="none" stroke="#dc2626" stroke-width="2" />
+              <line x1="1000" y1="654" x2="1000" y2="742" stroke="#dc2626" stroke-width="2" marker-end="url(#arr-red)" />
+
+              <line x1="1018" y1="760" x2="1076" y2="760" stroke="#334155" stroke-width="2" marker-end="url(#arr-dark)" />
+              <line x1="1210" y1="760" x2="1312" y2="760" stroke="#334155" stroke-width="2" marker-end="url(#arr-dark)" />
+              <text x="1256" y="751" font-size="10.5" font-weight="600" fill="#0f172a" text-anchor="middle">L(t)</text>
+
+              <!-- Realimentação L -> GPC_Nivel (y) -->
+              <circle cx="1256" cy="760" r="3.5" fill="#1d4ed8" />
+              <path d="M 1256 760 L 1256 896 L 194 896 L 194 760 L 216 760" fill="none" stroke="#1d4ed8" stroke-width="2" marker-end="url(#arr-blue)" />
+              <text x="725" y="888" font-size="10.5" font-weight="500" fill="#1d4ed8" text-anchor="middle">Realimentação de Nível L(t) → porta y do GPC_Nivel</text>
+
+              <!-- BLOCOS DA ÁREA 3 -->
+              <!-- Step r_L -->
+              <g class="block-node" data-id="step_rl">
+                <rect class="sim-shape" x="42" y="710" width="52" height="40" rx="5" fill="#ffffff" stroke="#334155" stroke-width="1.8" />
+                <polyline points="52,740 65,740 65,720 82,720" fill="none" stroke="#0f172a" stroke-width="2" />
+                <text x="68" y="764" font-size="10.5" font-weight="600" fill="#0f172a" text-anchor="middle">Step r_L</text>
+              </g>
+
+              <!-- From [v_ff] -->
+              <g class="block-node" data-id="from_vff">
+                <polygon class="sim-shape" points="104,776 162,776 176,790 162,804 104,804" fill="#f5f3ff" stroke="#7c3aed" stroke-width="1.7" />
+                <text x="136" y="794" font-size="10.5" font-weight="700" class="mono" fill="#5b21b6" text-anchor="middle">[v_ff]</text>
+              </g>
+
+              <!-- GPC_Nivel (MATLAB System) -->
+              <g class="block-node" data-id="gpc_nivel">
+                <rect class="sim-shape" x="218" y="706" width="172" height="106" rx="8" fill="#eff6ff" stroke="#1d4ed8" stroke-width="2.2" />
+                <rect x="223" y="711" width="162" height="96" rx="5" fill="none" stroke="#93c5fd" stroke-width="1" />
+                <text x="226" y="734" font-size="10.5" font-weight="700" fill="#1e3a8a">r</text>
+                <text x="226" y="764" font-size="10.5" font-weight="700" fill="#1e3a8a">y</text>
+                <text x="226" y="794" font-size="10.5" font-weight="700" fill="#6d28d9">v_ff</text>
+                <text x="380" y="764" font-size="10.5" font-weight="700" fill="#1e3a8a" text-anchor="end">u</text>
+                <text x="310" y="749" font-size="12" font-weight="700" fill="#1e3a8a" text-anchor="middle">GPC_Nivel</text>
+                <text x="310" y="765" font-size="9" class="mono" fill="#1d4ed8" text-anchor="middle">ControladorPreditivoDin</text>
+                <text x="310" y="782" font-size="8.8" fill="#3b82f6" text-anchor="middle">Ts=1s | λ=150 | Nu=1</text>
+                <text x="310" y="796" font-size="8.5" fill="#6d28d9" text-anchor="middle">[0 - v_ff ; 1 - v_ff]</text>
+              </g>
+
+              <!-- From [Fv] -> FF_L -->
+              <g class="block-node" data-id="from_fv_ff">
+                <polygon class="sim-shape" points="266,640 322,640 336,654 322,668 266,668" fill="#f5f3ff" stroke="#7c3aed" stroke-width="1.7" />
+                <text x="296" y="658" font-size="10.5" font-weight="700" class="mono" fill="#5b21b6" text-anchor="middle">[Fv]</text>
+              </g>
+
+              <!-- Transfer Fcn FF_L -->
+              <g class="block-node" data-id="tf_ff_l">
+                <rect class="sim-shape" x="388" y="627" width="156" height="54" rx="5" fill="#f5f3ff" stroke="#7c3aed" stroke-width="1.8" />
+                <text x="466" y="647" font-size="11" font-weight="700" class="mono" fill="#5b21b6" text-anchor="middle">-2s + 0.1</text>
+                <line x1="408" y1="653" x2="524" y2="653" stroke="#5b21b6" stroke-width="1.3" />
+                <text x="466" y="669" font-size="11" font-weight="600" class="mono" fill="#5b21b6" text-anchor="middle">5s + 1</text>
+                <text x="466" y="692" font-size="9" font-weight="600" fill="#6d28d9" text-anchor="middle">FF_L = -0.4 + 0.5/(5s+1)</text>
+              </g>
+
+              <!-- Goto [v_ff] -->
+              <g class="block-node" data-id="goto_vff">
+                <polygon class="sim-shape" points="624,640 682,640 696,654 682,668 624,668" fill="#f5f3ff" stroke="#7c3aed" stroke-width="1.7" />
+                <text x="656" y="658" font-size="10.5" font-weight="700" class="mono" fill="#5b21b6" text-anchor="middle">[v_ff]</text>
+              </g>
+
+              <!-- Sum Va (++) -->
+              <g class="block-node" data-id="sum_va">
+                <circle class="sim-shape" cx="586" cy="760" r="18" fill="#ffffff" stroke="#334155" stroke-width="2" />
+                <text x="576" y="764" font-size="12" font-weight="700" fill="#0f172a" text-anchor="middle">+</text>
+                <text x="586" y="753" font-size="12" font-weight="700" fill="#7c3aed" text-anchor="middle">+</text>
+              </g>
+
+              <!-- Saturation Sat_Va -->
+              <g class="block-node" data-id="sat_va">
+                <rect class="sim-shape" x="656" y="735" width="66" height="50" rx="5" fill="#fffbeb" stroke="#d97706" stroke-width="1.8" />
+                <line x1="664" y1="760" x2="714" y2="760" stroke="#cbd5e1" stroke-width="1" />
+                <line x1="689" y1="741" x2="689" y2="779" stroke="#cbd5e1" stroke-width="1" />
+                <polyline points="668,774 679,774 699,746 710,746" fill="none" stroke="#92400e" stroke-width="2" />
+                <text x="689" y="798" font-size="9.5" font-weight="600" fill="#92400e" text-anchor="middle">Sat_Va [0, 1]</text>
+              </g>
+
+              <!-- Sum d_Va (++) -->
+              <g class="block-node" data-id="sum_dva">
+                <circle class="sim-shape" cx="796" cy="760" r="18" fill="#ffffff" stroke="#334155" stroke-width="2" />
+                <text x="786" y="764" font-size="12" font-weight="700" fill="#0f172a" text-anchor="middle">+</text>
+                <text x="796" y="772" font-size="12" font-weight="700" fill="#dc2626" text-anchor="middle">+</text>
+              </g>
+
+              <!-- Step d_Va -->
+              <g class="block-node" data-id="step_dva">
+                <rect class="sim-shape" x="770" y="818" width="52" height="38" rx="5" fill="#fef2f2" stroke="#dc2626" stroke-width="1.8" />
+                <polyline points="780,846 793,846 793,828 810,828" fill="none" stroke="#991b1b" stroke-width="2" />
+                <text x="854" y="841" font-size="10" font-weight="700" fill="#dc2626">Step d_Va</text>
+              </g>
+
+              <!-- Gain K_a = 5.0 -->
+              <g class="block-node" data-id="gain_ka">
+                <polygon class="sim-shape" points="862,734 862,786 928,760" fill="#ecfdf5" stroke="#059669" stroke-width="1.8" />
+                <text x="884" y="764" font-size="11" font-weight="700" class="mono" fill="#065f46" text-anchor="middle">5.0</text>
+                <text x="892" y="801" font-size="9.5" font-weight="600" fill="#475569" text-anchor="middle">Bomba K_a</text>
+              </g>
+
+              <!-- From [Fv] -> Gd(s) -->
+              <g class="block-node" data-id="from_fv_gd">
+                <polygon class="sim-shape" points="752,640 808,640 822,654 808,668 752,668" fill="#fef2f2" stroke="#dc2626" stroke-width="1.7" />
+                <text x="782" y="658" font-size="10.5" font-weight="700" class="mono" fill="#991b1b" text-anchor="middle">[Fv]</text>
+              </g>
+
+              <!-- Transfer Fcn G_d(s) -->
+              <g class="block-node" data-id="tf_gd">
+                <rect class="sim-shape" x="862" y="627" width="142" height="54" rx="5" fill="#fef2f2" stroke="#dc2626" stroke-width="1.8" />
+                <text x="933" y="647" font-size="11" font-weight="700" class="mono" fill="#991b1b" text-anchor="middle">10s - 0.5</text>
+                <line x1="882" y1="653" x2="984" y2="653" stroke="#991b1b" stroke-width="1.3" />
+                <text x="933" y="669" font-size="11" font-weight="600" class="mono" fill="#991b1b" text-anchor="middle">5s + 1</text>
+                <text x="933" y="692" font-size="9" font-weight="600" fill="#b91c1c" text-anchor="middle">G_d(s) Swell/Shrink</text>
+              </g>
+
+              <!-- Sum Gd (++) -->
+              <g class="block-node" data-id="sum_gd">
+                <circle class="sim-shape" cx="1000" cy="760" r="18" fill="#ffffff" stroke="#334155" stroke-width="2" />
+                <text x="990" y="764" font-size="12" font-weight="700" fill="#0f172a" text-anchor="middle">+</text>
+                <text x="1000" y="753" font-size="12" font-weight="700" fill="#dc2626" text-anchor="middle">+</text>
+              </g>
+
+              <!-- Transfer Fcn G_L(s) -->
+              <g class="block-node" data-id="tf_gl">
+                <rect class="sim-shape" x="1078" y="733" width="132" height="54" rx="5" fill="#f0fdf4" stroke="#16a34a" stroke-width="1.8" />
+                <text x="1144" y="753" font-size="11.5" font-weight="700" class="mono" fill="#166534" text-anchor="middle">1</text>
+                <line x1="1098" y1="759" x2="1190" y2="759" stroke="#166534" stroke-width="1.3" />
+                <text x="1144" y="775" font-size="11" font-weight="600" class="mono" fill="#166534" text-anchor="middle">50s + 1</text>
+                <text x="1144" y="801" font-size="9.5" font-weight="600" fill="#15803d" text-anchor="middle">G_L(s) Tubulão</text>
+              </g>
+
+              <!-- Out L -->
+              <g class="block-node" data-id="out_l">
+                <rect class="sim-shape" x="1314" y="743" width="96" height="34" rx="17" fill="#f1f5f9" stroke="#334155" stroke-width="1.8" />
+                <text x="1362" y="764" font-size="11" font-weight="700" fill="#0f172a" text-anchor="middle">Out: L</text>
+              </g>
+            </g>
+          </svg>
+        </div>
+      </div>
+    </section>
+
+    <!-- Painel Inspetor de Parâmetros Simulink -->
+    <section class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+      <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+        <div class="space-y-1.5 flex-1">
+          <div class="flex items-center gap-2">
+            <span id="insp-badge" class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">Inspetor Simulink</span>
+            <h2 id="insp-title" class="text-base sm:text-lg font-bold text-slate-900">Clique em qualquer bloco do diagrama acima</h2>
+          </div>
+          <p id="insp-lib" class="text-xs mono text-slate-500">Library Browser: —</p>
+          <p id="insp-desc" class="text-sm text-slate-700 leading-relaxed">
+            Cada bloco acima usa a convenção visual padrão do Simulink (<span class="mono">Step</span>, <span class="mono">Sum</span>, <span class="mono">Gain</span>, <span class="mono">Transfer Fcn</span>, <span class="mono">Saturation</span>, <span class="mono">MATLAB System</span> e tags <span class="mono">Goto/From</span>) para evitar cruzamento de linhas entre as 3 malhas.
+          </p>
+        </div>
+
+        <div class="md:w-[440px] bg-slate-50 border border-slate-200 rounded-xl p-3.5">
+          <div class="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">Parâmetros para digitar no bloco</div>
+          <pre id="insp-params" class="text-xs mono text-slate-800 whitespace-pre-wrap leading-relaxed">Selecione um bloco no SVG para visualizar Numerator, Denominator, Gain, Limites ou Sample Time.</pre>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- Toast de Exportação -->
+  <div id="toast" class="fixed bottom-5 right-5 translate-y-16 opacity-0 pointer-events-none transition-all duration-300 bg-slate-900 text-white text-sm font-medium px-4 py-3 rounded-xl shadow-lg flex items-center gap-2.5 z-50">
+    <svg class="w-4 h-4 text-emerald-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
+    <span id="toast-msg">SVG exportado!</span>
+  </div>
+
+  <script>
+    (function () {
+      const BLOCK_INFO = {
+        step_rfv: {
+          badge: "Source • Step",
+          title: "Step r_Fv (Demanda de Vapor)",
+          lib: "Simulink / Sources / Step",
+          desc: "Aplica o degrau de referência de vazão de vapor Fv na entrada r do GPC mestre.",
+          params: "Step time: 70 (ou 10 no ensaio rápido)\nInitial value: 0\nFinal value: 2.0\nSample time: 0"
+        },
+        gpc_vapor: {
+          badge: "User-Defined • MATLAB System",
+          title: "GPC_Vapor (Mestre de Vapor)",
+          lib: "Simulink / User-Defined Functions / MATLAB System",
+          desc: "Controlador preditivo SISO restrito. Recebe r (r_Fv) e y (Fv) e calcula a referência de gás Fg_ref.",
+          params: "System object name: ControladorPreditivo\nParametro cfg: cfg_vap (carregado por config_Caldeira_Completa.m)\nTs = 0.5 s | N2 = 20 | Nu = 2 | lambda = 1.2\nu in [0, 0.46] | du in [-0.30, +0.30]"
+        },
+        sum_eg: {
+          badge: "Math • Sum",
+          title: "Sum eg (Erro da Malha de Gás)",
+          lib: "Simulink / Math Operations / Sum",
+          desc: "Calcula o erro eg = Fg_ref - Fg para alimentar o ramo integrador do controlador I-P.",
+          params: "Icon shape: round\nList of signs: |+-"
+        },
+        int_kig: {
+          badge: "Continuous • Integrator + Gain",
+          title: "Integrador Ki_g/s (com Back-Calculation)",
+          lib: "Simulink / Continuous / Integrator + Gain",
+          desc: "Integra o erro de gás com ganho Ki_g = 4.80. Para anti-windup, some Kb*(ag - ag_raw) na entrada do integrador (Kb = 50).",
+          params: "Gain Ki_g: 4.80\nIntegrator Initial condition: 0\nAnti-windup Back-Calculation: Kb = 50 (opcional para saturação)"
+        },
+        sum_ag: {
+          badge: "Math • Sum",
+          title: "Sum ag (Ação I-P b=0)",
+          lib: "Simulink / Math Operations / Sum",
+          desc: "Subtrai a ação proporcional medida (-Kp_g * Fg) da saída do integrador antes da saturação da válvula de gás.",
+          params: "Icon shape: round\nList of signs: |+-"
+        },
+        gain_kpg: {
+          badge: "Math • Gain",
+          title: "Gain Kp_g (Realimentação Proporcional I-P)",
+          lib: "Simulink / Math Operations / Gain",
+          desc: "Ganho proporcional aplicado diretamente sobre a medição Fg (estrutura I-P com b=0, evitando kick na referência).",
+          params: "Gain: 0.50\n(Dica visual: use Ctrl+I no Simulink para inverter o triângulo para a esquerda)"
+        },
+        sat_ag: {
+          badge: "Discontinuities • Saturation",
+          title: "Sat_ag (Válvula de Gás Física)",
+          lib: "Simulink / Discontinuities / Saturation",
+          desc: "Limita a abertura física da válvula de gás ag entre 0% e 100%.",
+          params: "Upper limit: 1\nLower limit: 0"
+        },
+        goto_ag: {
+          badge: "Signal Routing • Goto",
+          title: "Goto [ag]",
+          lib: "Simulink / Signal Routing / Goto",
+          desc: "Envia o sinal saturado ag para a Área 2 (FF_Ar) sem cruzar fios sobre a malha.",
+          params: "Goto tag: ag\nTag visibility: local"
+        },
+        tf_gg: {
+          badge: "Continuous • Transfer Fcn",
+          title: "G_g(s) — Dinâmica da Válvula de Gás",
+          lib: "Simulink / Continuous / Transfer Fcn",
+          desc: "Relaciona a abertura ag com a vazão de gás antes da perturbação da rede.",
+          params: "Numerator coefficients: [2]\nDenominator coefficients: [0.1 1]"
+        },
+        step_dg: {
+          badge: "Source • Step",
+          title: "Step d_g (Perturbação na Rede de Gás)",
+          lib: "Simulink / Sources / Step",
+          desc: "Simula variação de pressão na linha comum de combustível (pior caso: +0.05).",
+          params: "Step time: 130 (ou 70 no ensaio T7)\nInitial value: 0\nFinal value: 0.05"
+        },
+        sum_dg: {
+          badge: "Math • Sum",
+          title: "Sum d_g (Soma Aditiva em Fg)",
+          lib: "Simulink / Math Operations / Sum",
+          desc: "Soma a vazão nominal da válvula com a perturbação d_g formando Fg real.",
+          params: "Icon shape: round\nList of signs: ++|"
+        },
+        goto_fg: {
+          badge: "Signal Routing • Goto",
+          title: "Goto [Fg]",
+          lib: "Simulink / Signal Routing / Goto",
+          desc: "Distribui a vazão real de gás Fg para a referência de ar (Área 2) e para o monitor Fr/Fg.",
+          params: "Goto tag: Fg\nTag visibility: local"
+        },
+        tf_gv: {
+          badge: "Continuous • Transfer Fcn",
+          title: "G_v(s) — Planta de Vapor da Caldeira",
+          lib: "Simulink / Continuous / Transfer Fcn",
+          desc: "Dinâmica de 2ª ordem da geração de vapor: 10 / ((5s+1)(3s+1)).",
+          params: "Numerator coefficients: [10]\nDenominator coefficients: [15 8 1]"
+        },
+        out_fv: {
+          badge: "Sinks • To Workspace / Scope",
+          title: "Out: Fv",
+          lib: "Simulink / Sinks / To Workspace (ou Scope)",
+          desc: "Registra a vazão de vapor produzida Fv(t).",
+          params: "Variable name: Fv\nSave format: Array (ou Timeseries)"
+        },
+        goto_fv: {
+          badge: "Signal Routing • Goto",
+          title: "Goto [Fv]",
+          lib: "Simulink / Signal Routing / Goto",
+          desc: "Envia Fv(t) para o Feedforward de Nível e para o bloco de acoplamento G_d(s) na Área 3.",
+          params: "Goto tag: Fv\nTag visibility: local"
+        },
+        from_fg: {
+          badge: "Signal Routing • From",
+          title: "From [Fg]",
+          lib: "Simulink / Signal Routing / From",
+          desc: "Recebe a vazão medida Fg para gerar a referência estequiométrica de ar.",
+          params: "Goto tag: Fg"
+        },
+        gain_r: {
+          badge: "Math • Gain",
+          title: "Gain R = 2.1 (Razão Ar/Combustível)",
+          lib: "Simulink / Math Operations / Gain",
+          desc: "Multiplica Fg pela razão alvo R = 2.1 (5% de excesso de ar sobre R_esteq = 2.0) para obter Fr_ref.",
+          params: "Gain: 2.1"
+        },
+        sum_er: {
+          badge: "Math • Sum",
+          title: "Sum er (Erro da Malha de Ar)",
+          lib: "Simulink / Math Operations / Sum",
+          desc: "Calcula er = R*Fg - Fr.",
+          params: "Icon shape: round\nList of signs: |+-"
+        },
+        pi_ar: {
+          badge: "Continuous • PID Controller (PI)",
+          title: "PI LGR Ar (Polos em -10 e -16)",
+          lib: "Simulink / Continuous / PID Controller",
+          desc: "Controlador PI contínuo da malha de ar com anti-windup por back-calculation.",
+          params: "Controller: PI\nProportional (P): 4.20\nIntegral (I): 32.00\nAnti-windup method: back-calculation (Kb = 50)"
+        },
+        from_ag: {
+          badge: "Signal Routing • From",
+          title: "From [ag]",
+          lib: "Simulink / Signal Routing / From",
+          desc: "Lê o comando ag para o avanço de fase do feedforward de ar.",
+          params: "Goto tag: ag"
+        },
+        tf_ff_ar: {
+          badge: "Continuous • Transfer Fcn",
+          title: "FF_Ar — Feedforward Realizável (ag → ar)",
+          lib: "Simulink / Continuous / Transfer Fcn",
+          desc: "Forma algébrica compacta equivalente a 4R - 2R/(0.1s+1) para R = 2.1, implementável em um único bloco Transfer Fcn.",
+          params: "Numerator coefficients: [0.84 4.2]\nDenominator coefficients: [0.1 1]"
+        },
+        sum_ar: {
+          badge: "Math • Sum",
+          title: "Sum ar (PI + Feedforward)",
+          lib: "Simulink / Math Operations / Sum",
+          desc: "Soma a saída do PI LGR Ar com a parcela antecipativa ar_ff.",
+          params: "Icon shape: round\nList of signs: ++|"
+        },
+        sat_ar: {
+          badge: "Discontinuities • Saturation",
+          title: "Sat_ar (Válvula de Ar Física)",
+          lib: "Simulink / Discontinuities / Saturation",
+          desc: "Limita a abertura da válvula de ar entre 0 e 1.",
+          params: "Upper limit: 1\nLower limit: 0"
+        },
+        tf_gr: {
+          badge: "Continuous • Transfer Fcn",
+          title: "G_r(s) — Dinâmica da Válvula de Ar",
+          lib: "Simulink / Continuous / Transfer Fcn",
+          desc: "Relaciona a abertura ar com a vazão de ar Fr.",
+          params: "Numerator coefficients: [1]\nDenominator coefficients: [0.2 1]"
+        },
+        out_fr: {
+          badge: "Sinks • To Workspace / Scope",
+          title: "Out: Fr",
+          lib: "Simulink / Sinks / To Workspace",
+          desc: "Registra a vazão de ar Fr(t).",
+          params: "Variable name: Fr"
+        },
+        from_fg_mon: {
+          badge: "Signal Routing • From",
+          title: "From [Fg] (Monitor)",
+          lib: "Simulink / Signal Routing / From",
+          desc: "Lê Fg para o cálculo online da razão Fr/Fg.",
+          params: "Goto tag: Fg"
+        },
+        div_ratio: {
+          badge: "Math • Divide",
+          title: "Divide (Razão Fr / Fg)",
+          lib: "Simulink / Math Operations / Divide",
+          desc: "Calcula instantaneamente Fr / Fg para monitorar segurança de combustão (alvo = 2.1; estequiométrico = 2.0).",,
+          params: "Number of inputs: */\n(Opcional: proteja Fg com max(Fg, 1e-4) na partida)"
+        },
+        out_ratio: {
+          badge: "Sinks • Scope",
+          title: "Scope Fr/Fg",
+          lib: "Simulink / Sinks / Scope",
+          desc: "Visualiza a razão ar/combustível durante toda a simulação.",
+          params: "Y-limits sugeridos: [1.5 2.5]"
+        },
+        step_rl: {
+          badge: "Source • Step",
+          title: "Step r_L (Referência de Nível)",
+          lib: "Simulink / Sources / Step",
+          desc: "Referência de nível do tubulão (ex.: degrau de 2.0 para 2.5).",
+          params: "Step time: 10 (ou 120 no ensaio T7)\nInitial value: 2.0\nFinal value: 2.5"
+        },
+        from_vff: {
+          badge: "Signal Routing • From",
+          title: "From [v_ff]",
+          lib: "Simulink / Signal Routing / From",
+          desc: "Entrega v_ff à 3ª porta do GPC_Nivel para deslocar dinamicamente os limites [0 - v_ff ; 1 - v_ff].",
+          params: "Goto tag: v_ff"
+        },
+        gpc_nivel: {
+          badge: "User-Defined • MATLAB System",
+          title: "GPC_Nivel (Limites Dinâmicos)",
+          lib: "Simulink / User-Defined Functions / MATLAB System",
+          desc: "GPC SISO superamortecido para o nível. Possui 3 entradas (r, y, v_ff) e proteção automática de factibilidade do QP.",
+          params: "System object name: ControladorPreditivoDin\nParametro cfg: cfg_niv\nTs = 1.0 s | N2 = 30 | Nu = 1 | lambda = 150\ndVa in [-0.05, +0.05] | u_phys in [0, 1]"
+        },
+        from_fv_ff: {
+          badge: "Signal Routing • From",
+          title: "From [Fv] (Entrada do FF de Nível)",
+          lib: "Simulink / Signal Routing / From",
+          desc: "Recebe Fv da Área 1 sem cruzar fios sobre a malha de combustão.",
+          params: "Goto tag: Fv"
+        },
+        tf_ff_l: {
+          badge: "Continuous • Transfer Fcn",
+          title: "FF_L — Feedforward Dinâmico Exato",
+          lib: "Simulink / Continuous / Transfer Fcn",
+          desc: "Forma compacta equivalente a -0.4 + 0.5/(5s+1) para cancelar exatamente o efeito swell/shrink de G_d(s).",
+          params: "Numerator coefficients: [-2 0.1]\nDenominator coefficients: [5 1]"
+        },
+        goto_vff: {
+          badge: "Signal Routing • Goto",
+          title: "Goto [v_ff]",
+          lib: "Simulink / Signal Routing / Goto",
+          desc: "Envia v_ff para a entrada do GPC_Nivel.",
+          params: "Goto tag: v_ff\nTag visibility: local"
+        },
+        sum_va: {
+          badge: "Math • Sum",
+          title: "Sum Va (GPC + Feedforward)",
+          lib: "Simulink / Math Operations / Sum",
+          desc: "Soma Va_gpc com v_ff antes da saturação física da bomba.",
+          params: "Icon shape: round\nList of signs: ++|"
+        },
+        sat_va: {
+          badge: "Discontinuities • Saturation",
+          title: "Sat_Va (Bomba de Água Física)",
+          lib: "Simulink / Discontinuities / Saturation",
+          desc: "Limita o comando da bomba de água de alimentação entre 0 e 1.",
+          params: "Upper limit: 1\nLower limit: 0"
+        },
+        sum_dva: {
+          badge: "Math • Sum",
+          title: "Sum d_Va (Perturbação Opcional na Bomba)",
+          lib: "Simulink / Math Operations / Sum",
+          desc: "Ponto de injeção opcional para perturbação na alimentação de água.",
+          params: "Icon shape: round\nList of signs: |++"
+        },
+        step_dva: {
+          badge: "Source • Step",
+          title: "Step d_Va (Perturbação na Bomba)",
+          lib: "Simulink / Sources / Step",
+          desc: "Degrau de perturbação na bomba (0 no cenário nominal).",
+          params: "Initial value: 0\nFinal value: 0 (ou -0.10 para teste)"
+        },
+        gain_ka: {
+          badge: "Math • Gain",
+          title: "Gain K_a = 5.0 (Conversão Comando → Vazão)",
+          lib: "Simulink / Math Operations / Gain",
+          desc: "Converte o comando normalizado Va [0, 1] em vazão de água Fa = 5 * Va.",
+          params: "Gain: 5.0"
+        },
+        from_fv_gd: {
+          badge: "Signal Routing • From",
+          title: "From [Fv] (Acoplamento Swell/Shrink)",
+          lib: "Simulink / Signal Routing / From",
+          desc: "Alimenta o bloco de acoplamento térmico/hidráulico G_d(s).",
+          params: "Goto tag: Fv"
+        },
+        tf_gd: {
+          badge: "Continuous • Transfer Fcn",
+          title: "G_d(s) — Acoplamento de Vapor (Swell/Shrink)",
+          lib: "Simulink / Continuous / Transfer Fcn",
+          desc: "Modelo do efeito de fase não mínima -0.5(1 - 20s)/(5s + 1) causado pela variação de vapor Fv.",
+          params: "Numerator coefficients: [10 -0.5]\nDenominator coefficients: [5 1]"
+        },
+        sum_gd: {
+          badge: "Math • Sum",
+          title: "Sum G_d (Balanço de Massa no Tubulão)",
+          lib: "Simulink / Math Operations / Sum",
+          desc: "Soma a vazão de água Fa com a parcela acoplada de vapor G_d(s)*Fv.",
+          params: "Icon shape: round\nList of signs: ++|"
+        },
+        tf_gl: {
+          badge: "Continuous • Transfer Fcn",
+          title: "G_L(s) — Dinâmica do Tubulão",
+          lib: "Simulink / Continuous / Transfer Fcn",
+          desc: "Dinâmica dominante lenta de nível no tubulão (tau_L = 50 s).",
+          params: "Numerator coefficients: [1]\nDenominator coefficients: [50 1]\n(Condição inicial de estado para L0=2.0 pode ser ajustada em Va0=0.40)"
+        },
+        out_l: {
+          badge: "Sinks • To Workspace / Scope",
+          title: "Out: L",
+          lib: "Simulink / Sinks / To Workspace",
+          desc: "Registra o nível do tubulão L(t).",
+          params: "Variable name: L"
+        }
+      };
+
+      const HINTS = {
+        all: "Visão completa: 3 áreas empilhadas em fluxo esquerda → direita, usando tags Goto/From para eliminar cruzamentos entre malhas.",
+        vapor: "Área 1 isolada: Step r_Fv → GPC_Vapor → I-P Gás (Ki_g/s e -Kp_g) → Sat_ag → G_g(s) → (+d_g) → G_v(s) → Out Fv.",
+        ar: "Área 2 isolada: From [Fg] → Gain R=2.1 → PI LGR Ar + FF_Ar (de [ag]) → Sat_ar → G_r(s) → Out Fr + Monitor Fr/Fg.",
+        nivel: "Área 3 isolada: Step r_L + [v_ff] → GPC_Nivel → (+v_ff) → Sat_Va → Gain 5.0 → (+G_d(s) de [Fv]) → G_L(s) → Out L."
+      };
+
+      const filterBtns = document.querySelectorAll(".filter-btn");
+      const svgGroups = document.querySelectorAll("#control-diagram .svg-item");
+      const blockNodes = document.querySelectorAll("#control-diagram .block-node");
+      const focusHintText = document.getElementById("focus-hint-text");
+
+      const inspBadge = document.getElementById("insp-badge");
+      const inspTitle = document.getElementById("insp-title");
+      const inspLib = document.getElementById("insp-lib");
+      const inspDesc = document.getElementById("insp-desc");
+      const inspParams = document.getElementById("insp-params");
+
+      function setFilter(f) {
+        filterBtns.forEach((btn) => {
+          const active = btn.dataset.filter === f;
+          btn.className = active
+            ? "filter-btn px-3.5 py-1.5 rounded-lg text-xs font-semibold border transition bg-slate-900 text-white border-slate-900"
+            : "filter-btn px-3.5 py-1.5 rounded-lg text-xs font-semibold border transition bg-white text-slate-700 border-slate-200 hover:bg-slate-50";
+        });
+        svgGroups.forEach((g) => {
+          if (f === "all" || g.dataset.group === f) {
+            g.classList.remove("svg-dimmed");
+          } else {
+            g.classList.add("svg-dimmed");
+          }
+        });
+        focusHintText.textContent = HINTS[f] || HINTS.all;
+      }
+
+      function selectBlock(id, el) {
+        blockNodes.forEach((n) => n.classList.remove("block-selected"));
+        el.classList.add("block-selected");
+        const info = BLOCK_INFO[id];
+        if (!info) return;
+        inspBadge.textContent = info.badge;
+        inspTitle.textContent = info.title;
+        inspLib.textContent = "Library Browser: " + info.lib;
+        inspDesc.textContent = info.desc;
+        inspParams.textContent = info.params;
+      }
+
+      filterBtns.forEach((b) => b.addEventListener("click", () => setFilter(b.dataset.filter)));
+      blockNodes.forEach((n) => n.addEventListener("click", () => selectBlock(n.dataset.id, n)));
+
+      document.getElementById("btn-export-svg").addEventListener("click", () => {
+        const svg = document.getElementById("control-diagram");
+        const clone = svg.cloneNode(true);
+        clone.querySelectorAll(".svg-dimmed").forEach((el) => el.classList.remove("svg-dimmed"));
+        clone.querySelectorAll(".block-selected").forEach((el) => el.classList.remove("block-selected"));
+        const data = new XMLSerializer().serializeToString(clone);
+        const blob = new Blob([data], { type: "image/svg+xml;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "simulink_layout_caldeira.svg";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        const toast = document.getElementById("toast");
+        toast.classList.remove("translate-y-16", "opacity-0");
+        setTimeout(() => toast.classList.add("translate-y-16", "opacity-0"), 2600);
+      });
+    })();
+  </script>
+</body>
+</html>
