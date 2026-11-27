@@ -216,4 +216,135 @@ Ao mover o ganho $K_{p,g}$ para o ramo de realimenta\c{c}\~ao de $F_g$ (estrutur
     \item \textbf{Equil\'ibrio entre seguran\c{c}a e efici\^encia ($R = 2{,}1$):} a estequiometria f\'isica considerada exige no m\'inimo $R_{\text{esteq}} = 2{,}0$ para queima completa do combust\'ivel. Adotar $R = 2{,}1$ ($5\%$ de excesso de ar) reduz o risco de mistura rica durante perturba\c{c}\~oes positivas $d_g$ sem desperdi\c{c}ar energia t\'ermica aquecendo excesso desnecess\'ario de ar. Para $R = 2{,}1$, o compensador assume a forma $G_{\text{FF,ar}}(s) = \frac{0{,}84s + 4{,}2}{0{,}1s + 1}$.
 \end{itemize}
 
+% =========================================================================
+\section{Formula\c{c}\~ao do GPC SISO, \texttt{quadprog} e Restri\c{c}\~oes F\'isicas}
+% =========================================================================
+
+\subsection{Modelo Discreto e Par\^ametros que Entram no GPC}
+Os dois controladores preditivos (\texttt{GPC\_Vapor} e \texttt{GPC\_Nivel}) implementam a formula\c{c}\~ao cl\'assica de Controle Preditivo Generalizado (GPC) baseada no modelo CARIMA discreto:
+\begin{equation}
+    A(z^{-1}) y(k) = z^{-d} B(z^{-1}) u(k - 1) + \frac{\xi(k)}{\Delta}, \qquad \Delta = 1 - z^{-1},
+\end{equation}
+em que $A(z^{-1})$ e $B(z^{-1})$ s\~ao obtidos pela discretiza\c{c}\~ao ZOH do modelo nominal de cada malha no respectivo per\'iodo de amostragem $T_s$. A partir da equa\c{c}\~ao diofantina, a predi\c{c}\~ao ao longo do horizonte $[N_1, N_2]$ separa-se em resposta for\c{c}ada e resposta livre:
+\begin{equation}
+    \hat{\mathbf{y}} = G\,\Delta \mathbf{u} + \mathbf{f}, \qquad \mathbf{f} = F\,\mathbf{y}_{\text{mem}} + H\,\Delta \mathbf{u}_{\text{mem}}.
+\end{equation}
+Os par\^ametros de sintonia fornecidos a cada bloco e os motivos de cada escolha est\~ao reunidos na Tabela~\ref{tab:param_gpc}.
+
+\begin{table}[H]
+\centering
+\caption{Par\^ametros do GPC SISO para as malhas de vapor e n\'ivel e sua justificativa.}
+\label{tab:param_gpc}
+\begin{tabular}{@{}p{2.2cm}p{2.8cm}p{2.8cm}p{6.8cm}@{}}
+\toprule
+\textbf{Par\^ametro} & \textbf{GPC Vapor} & \textbf{GPC N\'ivel} & \textbf{Motivo da Escolha} \\
+\midrule
+Modelo $A, B$ & $T_g(s)G_v(s)$ em ZOH & $G_p(s) = \frac{5}{50s+1}$ & O mestre enxerga a malha de g\'as j\'a fechada ($T_g$); o n\'ivel enxerga s\'o a bomba e o tubul\~ao ($\tau_L=50\text{ s}$). \\
+$T_s$ & $0{,}5\text{ s}$ & $1{,}0\text{ s}$ & Cerca de $1/10$ a $1/15$ do tempo de acomoda\c{c}\~ao alvo de cada malha, sem sobrecarregar o c\'alculo. \\
+$N_1, N_2$ & $1,\; 20$ ($10\text{ s}$) & $1,\; 30$ ($30\text{ s}$) & Sem atraso de transporte ($d=0$); $N_2$ cobre o trecho dominante da resposta transit\'oria. \\
+$N_u$ & $2$ & $1$ & $N_u=2$ d\'a agilidade ao vapor para atingir $t_{5\%}\approx 6{,}4\text{ s}$; $N_u=1$ evita movimentos agressivos na bomba. \\
+$\lambda$ & $1{,}2$ & $150{,}0$ & Penalidade baixa no vapor prioriza rapidez; penalidade alta no n\'ivel imp\~oe resposta mon\'otona ($OS=0\%$). \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Estrutura do Problema Quadr\'atico no \texttt{quadprog}}
+A cada instante de amostragem $k$, o GPC minimiza a fun\c{c}\~ao objetivo quadr\'atica sujeita \`as restri\c{c}\~oes:
+\begin{equation}
+    J(\Delta \mathbf{u}) = (\mathbf{w} - \hat{\mathbf{y}})^T (\mathbf{w} - \hat{\mathbf{y}}) + \lambda\, \Delta \mathbf{u}^T \Delta \mathbf{u} = \frac{1}{2} \Delta \mathbf{u}^T H_{\text{qp}} \Delta \mathbf{u} + \mathbf{f}_{\text{qp}}^T \Delta \mathbf{u} + c,
+\end{equation}
+onde $\mathbf{w} = r(k)\mathbf{1}_{N_y}$ \'e a trajetória de refer\^encia constante no horizonte, e as matrizes entregues ao comando \texttt{quadprog} s\~ao:
+\begin{equation}
+    H_{\text{qp}} = 2\big(G^T G + \lambda I_{N_u}\big), \qquad \mathbf{f}_{\text{qp}} = -2 G^T (\mathbf{w} - \mathbf{f}).
+\end{equation}
+
+Para impor limites simult\^aneos sobre a taxa de varia\c{c}\~ao $\Delta u$, a amplitude acumulada $u(k+j) = u(k-1) + \sum_{i=0}^{j}\Delta u(k+i)$ e a sa\'ida predita $\hat{\mathbf{y}}$, definem-se os limites diretos de caixa e o sistema linear $A_{\text{qp}} \Delta \mathbf{u} \leq \mathbf{b}_{\text{qp}}$:
+\begin{equation}
+    \mathbf{lb} = \Delta u_{\min} \mathbf{1}_{N_u}, \qquad \mathbf{ub} = \Delta u_{\max} \mathbf{1}_{N_u},
+\end{equation}
+\begin{equation}
+    A_{\text{qp}} =
+    \begin{bmatrix}
+        T \\ -T \\ G \\ -G
+    \end{bmatrix},
+    \qquad
+    \mathbf{b}_{\text{qp}} =
+    \begin{bmatrix}
+        (u_{\max} - u_{\text{ant}})\mathbf{1}_{N_u} \\
+        (u_{\text{ant}} - u_{\min})\mathbf{1}_{N_u} \\
+        y_{\max}\mathbf{1}_{N_y} - \mathbf{f} \\
+        -y_{\min}\mathbf{1}_{N_y} + \mathbf{f}
+    \end{bmatrix},
+\end{equation}
+em que $T \in \mathbb{R}^{N_u \times N_u}$ \'e a matriz triangular inferior de uns que acumula os incrementos futuros ($\mathbf{u} = u_{\text{ant}}\mathbf{1} + T \Delta \mathbf{u}$). Pelo princ\'ipio do horizonte deslizante (Figura~\ref{fig:gpc_quadprog}(a)), apenas o primeiro incremento $\Delta u(k)$ \'e aplicado na planta a cada passo.
+
+\subsection{Limites F\'isicos e Deslocamento Din\^amico da Janela no N\'ivel}
+As restri\c{c}\~oes inseridas no \texttt{quadprog} traduzem limites f\'isicos reais dos atuadores e n\~ao escolhas arbitr\'arias:
+\begin{itemize}
+    \item \textbf{Limites no \texttt{GPC\_Vapor}:} a taxa $\Delta F_{g,\text{ref}} \in [-0{,}30;\; +0{,}30]$ evita degraus bruscos na v\'alvula de g\'as sem impedir a acelera\c{c}\~ao de $3\times$ no vapor; j\'a o teto superior $u_{\max} = 0{,}46$ ($F_v \leq 4{,}6$ em regime) garante que a v\'alvula de ar opere abaixo da satura\c{c}\~ao em $R = 2{,}1$, pois $a_{r,\text{ss}} = R\,F_g = 2{,}1 \times 0{,}46 = 0{,}966 < 1{,}0$, mantendo $3{,}4\%$ de reserva de curso para rejeitar $d_g$. A faixa de sa\'ida $F_v \in [0;\; 200]$ imp\~oe n\~ao negatividade f\'isica da vaz\~ao.
+    \item \textbf{\textit{Feedforward} exato no n\'ivel ($G_{\text{FF,L}}$):} dividindo o acoplamento pela din\^amica da bomba no tubul\~ao, obt\'em-se o compensador realiz\'avel:
+    \begin{equation}
+        G_{\text{FF,L}}(s) = -\frac{G_d(s)}{G_p(s)} = \frac{0{,}5(1 - 20s)(50s + 1)}{5(5s + 1)} \approx -0{,}4 + \frac{0{,}5}{5s + 1} = \frac{-2s + 0{,}1}{5s + 1}.
+    \end{equation}
+    \item \textbf{Por que a restri\c{c}\~ao do \texttt{GPC\_Nivel} deve ser din\^amica:} como o comando real da bomba \'e $V_a = V_{a,\text{gpc}} + v_{\text{ff}} \in [0, 1]$, o GPC n\~ao pode usar limites fixos $[0, 1]$. Se $v_{\text{ff}}$ estiver em $+0{,}20$ ou $-0{,}40$, a folga restante da bomba muda na mesma propor\c{c}\~ao. Assim, o bloco recebe $v_{\text{ff}}(k)$ na terceira entrada e recalcula a janela a cada segundo (Figura~\ref{fig:gpc_quadprog}(b)):
+    \begin{equation}
+        u_{\min,\text{din}}(k) = 0 - v_{\text{ff}}(k), \qquad u_{\max,\text{din}}(k) = 1 - v_{\text{ff}}(k).
+    \end{equation}
+    Caso um pulso r\'apido de $v_{\text{ff}}$ desloque a janela al\'em do passo m\'aximo $\Delta V_a \in [-0{,}05;\; +0{,}05]$, aplica-se a prote\c{c}\~ao de factibilidade:
+    \begin{equation}
+        u_{\min,\text{ef}} = \min\!\big(u_{\min,\text{din}},\; u_{\text{ant}} + \Delta u_{\max}\big), \qquad u_{\max,\text{ef}} = \max\!\big(u_{\max,\text{din}},\; u_{\text{ant}} + \Delta u_{\min}\big),
+    \end{equation}
+    impedindo que o \texttt{quadprog} falhe por infactibilidade quando a bomba encosta em $0$ ou $1$. A faixa de n\'ivel $L \in [-10;\; 50]$ mant\'em folga num\'erica para eventuais res\'iduos de erro de modelagem sem conflitar com o batente f\'isico da bomba.
+\end{itemize}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{figuras/fig_06_gpc_quadprog_e_limites}
+    \caption{Funcionamento do GPC com restri\c{c}\~oes: (a) horizonte deslizante ($N_1, N_2, N_u$) e aplica\c{c}\~ao do primeiro incremento $\Delta u(k)$; (b) deslocamento da janela $[0 - v_{\text{ff}};\; 1 - v_{\text{ff}}]$ no \texttt{quadprog} do n\'ivel sob degrau de vapor.}
+    \label{fig:gpc_quadprog}
+\end{figure}
+
+% =========================================================================
+\section{Consolida\c{c}\~ao Final no MATLAB/Simulink}
+% =========================================================================
+
+\subsection{Implementa\c{c}\~ao Consolidada (\texttt{Caldeira\_Controle.slx})}
+Na implementa\c{c}\~ao final no Simulink (Figura~\ref{fig:simulink_final}), separou-se a defini\c{c}\~ao da planta e dos cen\'arios de teste da camada de controle preditivo:
+\begin{itemize}
+    \item \textbf{Planta e malhas cl\'assicas no diagrama:} as fun\c{c}\~oes de transfer\^encia ($G_g$, $G_v$, $G_r$, $G_d$, $G_L$), os blocos \texttt{Step} ($r_{F_v}$, $d_g$, $r_L$, $d_{V_a}$), os ganhos ($K_{p,g}$, $K_{i,g}$, $R$, $K_{p,r}$, $K_{i,r}$, $K_a$) e os blocos antecipativos ($G_{\text{FF,ar}}$, $G_{\text{FF,L}}$) utilizam valores num\'ericos diretos no diagrama. Isso permite editar refer\^encias, perturba\c{c}\~oes ou erros de modelagem diretamente na interface do Simulink e exibir os polin\^omios completos nos blocos.
+    \item \textbf{Controladores preditivos no MATLAB:} apenas os dois blocos \texttt{MATLAB System} (\texttt{ControladorPreditivo} para vapor e \texttt{ControladorPreditivoDin} para n\'ivel) dependem das estruturas \texttt{cfg\_vap} e \texttt{cfg\_niv} definidas em \texttt{config\_caldeira.m}, carregadas automaticamente pelos \textit{callbacks} \texttt{PreLoadFcn} e \texttt{InitFcn} ao abrir ou executar o modelo.
+    \item \textbf{Telemetria e anima\c{c}\~ao f\'isica:} blocos discretos \texttt{To Workspace} exportam os sinais simulados para \texttt{roda\_caldeira.m} e \texttt{anima\_caldeira.m}, que avaliam fisicamente o comportamento do tubul\~ao, das v\'alvulas e da raz\~ao de queima diretamente pelos dados da simula\c{c}\~ao.
+\end{itemize}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{figuras/fig_simulink_caldeira.png}
+    \caption{Modelo final consolidado no Simulink (\texttt{Caldeira\_Controle.slx}) organizado em tr\^es \'areas horizontais. \href{\urlDiagramaInterativo}{Vers\~ao interativa com inspetor de par\^ametros (HTML)}.}
+    \label{fig:simulink_final}
+\end{figure}
+
+\subsection{Tabela-S\'intese de Par\^ametros e Considera\c{c}\~oes Finais}
+A Tabela~\ref{tab:sintese_final} re\'une os par\^ametros nominais consolidados das tr\^es malhas de controle.
+
+\begin{table}[H]
+\centering
+\caption{S\'intese dos par\^ametros finais implementados no sistema de controle da caldeira.}
+\label{tab:sintese_final}
+\begin{tabular}{@{}p{3.3cm}p{4.1cm}p{7.2cm}@{}}
+\toprule
+\textbf{Subsistema} & \textbf{Controlador} & \textbf{Par\^ametros Finais} \\
+\midrule
+Malha Interna de G\'as & \texttt{I-P} ($b=0$) + \textit{back-calc} & Polos em $-8, -12$; $K_{p,g}=0{,}50$; $K_{i,g}=4{,}80$; $K_b=50$; $a_g \in [0, 1]$ \\
+\addlinespace
+Malha Escrava de Ar & \texttt{PI LGR} + \textit{FF} ($a_g \to a_r$) & Polos em $-10, -16$; $R=2{,}1$; $K_{p,r}=4{,}20$; $K_{i,r}=32{,}00$; $K_b=50$; $G_{\text{FF,ar}}=\frac{0{,}84s+4{,}2}{0{,}1s+1}$; $a_r \in [0, 1]$ \\
+\addlinespace
+Mestre de Vapor ($F_v$) & GPC SISO (\texttt{quadprog}) & $T_s=0{,}5\text{ s}$; $N_1=1$; $N_2=20$; $N_u=2$; $\lambda=1{,}2$; $F_{g,\text{ref}} \in [0;\; 0{,}46]$; $|\Delta F_{g,\text{ref}}| \leq 0{,}30$; $F_v \in [0;\; 200]$ \\
+\addlinespace
+N\'ivel do Tubul\~ao ($L$) & GPC SISO + \textit{FF} din\^amico & $T_{s,L}=1{,}0\text{ s}$; $N_1=1$; $N_2=30$; $N_u=1$; $\lambda=150$; $V_a \in [0 - v_{\text{ff}};\; 1 - v_{\text{ff}}]$; $|\Delta V_a| \leq 0{,}05$; $G_{\text{FF,L}}=\frac{-2s+0{,}1}{5s+1}$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+A arquitetura estruturada em tr\^es camadas SISO atende integralmente aos requisitos do enunciado dentro do escopo da disciplina: a malha mestre de vapor assegura seguimento com erro nulo e redu\c{c}\~ao de aproximadamente tr\^es vezes no tempo de acomoda\c{c}\~ao ($t_{5\%} \approx 6{,}4\text{ s}$ frente a $19{,}3\text{ s}$ em malha aberta) com sobressinal abaixo de $5\%$; o conjunto \texttt{I-P}, \texttt{PI LGR} e \textit{feedforward} realiz\'avel mant\'em a queima est\'avel com margem de $5\%$ de excesso de ar ($R = 2{,}1$) mesmo sob perturba\c{c}\~oes na rede de g\'as; e o GPC de n\'ivel aliado ao compensador din\^amico de resposta inversa preserva resposta mon\'otona sem sobressinal, respeitando as satura\c{c}\~oes f\'isicas de todos os atuadores.
+
 \end{document}
